@@ -759,7 +759,10 @@ jobs:
             - "node_modules"
       - run:
           name: "Install Python dependencies"
-          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
+          command: |
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
+            # Below line is a workaround for the jupyter extension tests needing the latest python sdk code
+            pip install --ignore-installed ../python-sdk
       - run:
           name: "Build and test the extension"
           command: |
