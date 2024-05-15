@@ -1,22 +1,27 @@
-FROM alpine:3.10 AS pachyderm_build
+FROM golang:1.22.2 AS go-mod-cache
 
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN export GOPROXY=https://goproxy.cn,direct && go mod download
+
+
+FROM golang:1.22.2 AS pachyderm_build
 RUN mkdir -p /tmp/to-copy/tmp && chmod -R 777 /tmp/to-copy 
-RUN apk add -U ca-certificates && update-ca-certificates
+RUN apt install ca-certificates && update-ca-certificates
+COPY --from=go-mod-cache /go/pkg/mod/ /go/pkg/mod/
+COPY . /app
+WORKDIR /app
+RUN CGO_ENABLED=0 go build -o /app/pachd /app/src/server/cmd/pachd
 
-FROM scratch
-
-MAINTAINER support@pachyderm.io
-
-LABEL name="Pachyderm" \
-      vendor="Pachyderm"
+FROM alpine:3.10
 
 COPY LICENSE /LICENSE
 COPY licenses /licenses
-COPY pachd /pachd
+COPY --from=pachyderm_build /app/pachd /pachd
 COPY dex-assets /dex-assets
 COPY --from=pachyderm_build /tmp/to-copy /
 COPY --from=pachyderm_build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 USER 1000
 
-ENTRYPOINT ["/pachd"]
+CMD ["/pachd"]
